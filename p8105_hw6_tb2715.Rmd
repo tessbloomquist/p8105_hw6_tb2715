@@ -30,6 +30,7 @@ theme_set(theme_minimal() + theme(legend.position = "bottom"))
 ```
 
 ## Question 1
+# Read and clean birthweight
 ```{r}
 birthweight_data = read_csv("./data/birthweight.csv")
 
@@ -44,7 +45,7 @@ birthweight_data %>%
 ```
 
 ```{r}
-# create univariate linear model with menarche
+# create univariate linear model with family income
 fincome_effect = lm(bwt ~ fincome, data = birthweight_data) 
 
 fincome_effect %>%
@@ -54,13 +55,48 @@ fincome_effect %>%
 In a simple, unadjusted linear regression model, family monthly income (continuous variable) is a significant predictor of birthweight, such that birthweight increases with increasing family monthly income.
 
 ```{r}
-birthweight_data %>%
-  add_residuals(fincome_effect) %>%
-  add_predictions(fincome_effect) %>%
-  ggplot(aes(x = bwt, y = resid)) + geom_violin()
+#examine if the relationship between income and birthweight is true when including covariates
 
+adjusted_model = lm(bwt ~ fincome + delwt + gaweeks + menarche + pnumlbw + smoken + ppbmi, data = birthweight_data) %>% 
+  broom::tidy() %>% 
+  knitr::kable(digits = 4)
+
+adjusted_model  
+```
+AFter adjusting for covariates, the relationships remain significant, except for when including the mother age variable. As this is a very specific variable that is likely to have its own relationship on birthweight. This variable will be removed for the final linear relationship. 
+
+```{r}
+my_adjusted_model = lm(bwt ~ fincome + delwt + gaweeks + pnumlbw + smoken + ppbmi, data = birthweight_data) 
+
+my_adjusted_model  %>% 
+  broom::tidy() %>% 
+  knitr::kable(digits = 4)
 ```
 
+#Residual and Predictive model
+```{r}
+residuals = 
+  birthweight_data %>%
+  add_residuals(my_adjusted_model)
+
+predictive = 
+  birthweight_data %>%
+  add_predictions(my_adjusted_model)
+
+all_bw_data = 
+  merge(residuals, predictive)
+```
+
+
+```{r}
+all_bw_data %>%
+  ggplot(aes(x = pred, y = resid)) + 
+  geom_point() +
+  geom_smooth()
+```
+The created model is not very useful. As the predictive model value increases, the residual value tends to decrease. The covariates used in the model would need to be investigated more thouroughly to try and create a better model that is centered around 0. 
+
+# Compare across additional models
 ```{r}
 #create 2 comparison linear models
 main_effects = lm(bwt ~ blength + gaweeks, data = birthweight_data) %>%
@@ -73,7 +109,41 @@ all_effects = lm(bwt ~ bhead * blength * babysex, data = birthweight_data) %>%
 
 all_effects
 
-crossv_mc(birthweight_data, 4342, test = 0.2)
+```
+
+# Use RMSE to evaluate prediction accuracy
+```{r}
+cv_df = 
+  crossv_mc(birthweight_data, 100)
+
+cv_df =
+  cv_df %>% 
+  mutate(
+    train = map(train, as_tibble),
+    test = map(test, as_tibble))
+
+cv_df = 
+  cv_df %>% 
+    mutate(my_adjusted_model = map(train, ~lm(bwt ~ fincome + delwt + gaweeks + pnumlbw + smoken + ppbmi, data = .x)), 
+    main_effects = map(train, ~lm(bwt ~ blength + gaweeks, data = .x)),
+    all_effects = map(train, ~lm(bwt ~ bhead * blength * babysex, data = .x))) %>% 
+  mutate(
+    rmse_my_model = map2_dbl(my_adjusted_model, test, ~rmse(model = .x, data = .y)),
+    rmse_main_model = map2_dbl(main_effects, test, ~rmse(model = .x, data = .y)),
+    rmse_all_model = map2_dbl(all_effects, test, ~rmse(model = .x, data = .y)))
+```
+
+Plot RMSE values in 
+```{r}
+cv_df %>% 
+  select(starts_with("rmse")) %>% 
+  pivot_longer(
+    everything(),
+    names_to = "model", 
+    values_to = "rmse",
+    names_prefix = "rmse_") %>% 
+  mutate(model = fct_inorder(model)) %>% 
+  ggplot(aes(x = model, y = rmse)) + geom_violin()
 ```
 
 
