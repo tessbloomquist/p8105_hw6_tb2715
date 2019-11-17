@@ -7,8 +7,12 @@ output: github_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
 library(tidyverse)
 library(viridis)
+library(purrr)
+library(modelr)
+
 knitr::opts_chunk$set(
 	echo = TRUE,
 	warning = FALSE,
@@ -25,7 +29,55 @@ scale_fill_discrete = scale_fill_viridis_d
 theme_set(theme_minimal() + theme(legend.position = "bottom"))
 ```
 
-Question 2
+## Question 1
+```{r}
+birthweight_data = read_csv("./data/birthweight.csv")
+
+birthweight_data %>%
+  janitor:: clean_names() %>%
+   mutate(
+    babysex = as.factor(babysex),
+    frace = as.factor(frace),
+    malform = as.factor(malform),
+    mrace = as.factor(mrace)
+  )
+```
+
+```{r}
+# create univariate linear model with menarche
+fincome_effect = lm(bwt ~ fincome, data = birthweight_data) 
+
+fincome_effect %>%
+  broom::tidy() %>%
+  knitr::kable(digits = 2)
+```
+In a simple, unadjusted linear regression model, family monthly income (continuous variable) is a significant predictor of birthweight, such that birthweight increases with increasing family monthly income.
+
+```{r}
+birthweight_data %>%
+  add_residuals(fincome_effect) %>%
+  add_predictions(fincome_effect) %>%
+  ggplot(aes(x = bwt, y = resid)) + geom_violin()
+
+```
+
+```{r}
+#create 2 comparison linear models
+main_effects = lm(bwt ~ blength + gaweeks, data = birthweight_data) %>%
+  broom::tidy()
+
+main_effects
+
+all_effects = lm(bwt ~ bhead * blength * babysex, data = birthweight_data) %>%
+  broom::tidy()
+
+all_effects
+
+crossv_mc(birthweight_data, 4342, test = 0.2)
+```
+
+
+## Question 2
 # Import weather data
 ```{r}
 weather_df = 
@@ -63,10 +115,25 @@ boot_straps
 bootstrap_results = 
   boot_straps %>% 
   mutate(
-    models = map(strap_sample, ~lm(y ~ x, data = .x) ),
+    models = map(strap_sample, ~lm(tmax ~ tmin, data = .x)),
     results = map(models, broom::tidy)) %>% 
   select(-strap_sample, -models) %>% 
-  unnest() %>% 
+  unnest() 
+
+
+
+boot_straps %>% 
+  unnest(strap_sample) %>% 
+  ggplot(aes(tmin = tmin, tmax = tmax)) + 
+  geom_line(aes(group = strap_number), stat = "smooth", method = "lm", se = FALSE, alpha = .1, color = "blue") +
+  geom_point(data = weather_df, alpha = .5)
+
+
+ggplot %>% 
+  ggplot(aes(tmin = tmin, tmax = tmax)) + 
+  geom_line(aes(group = strap_number), stat = "smooth", method = "lm", se = FALSE, alpha = .1, color = "blue") +
+  geom_point(data = weather_df, alpha = .5)
+
   group_by(term) %>% 
   summarize(boot_se = sd(estimate))
 ```
