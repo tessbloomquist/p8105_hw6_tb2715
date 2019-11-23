@@ -52,6 +52,7 @@ fincome_effect %>%
   broom::tidy() %>%
   knitr::kable(digits = 2)
 ```
+
 In a simple, unadjusted linear regression model, family monthly income (continuous variable) is a significant predictor of birthweight, such that birthweight increases with increasing family monthly income.
 
 ```{r}
@@ -63,6 +64,7 @@ adjusted_model = lm(bwt ~ fincome + delwt + gaweeks + menarche + malform + pnuml
 
 adjusted_model  
 ```
+
 After adjusting for covariates, the relationships remain significant, except for when including the mother age, mother height, and malformation variable. These variables will be removed for the final linear relationship. 
 
 ```{r}
@@ -73,7 +75,7 @@ my_adjusted_model  %>%
   knitr::kable(digits = 4)
 ```
 
-#Residual and Predictive model
+# Residual and Predictive model
 ```{r}
 residuals = 
   birthweight_data %>%
@@ -94,6 +96,7 @@ all_bw_data %>%
   geom_point() +
   geom_smooth()
 ```
+
 The created model is not very useful. As the predictive model value increases, the residual value tends to decrease. The covariates used in the model would need to be investigated more thouroughly to try and create a better model that is centered around 0. 
 
 # Compare across additional models
@@ -133,7 +136,7 @@ cv_df =
     rmse_all_model = map2_dbl(all_effects, test, ~rmse(model = .x, data = .y)))
 ```
 
-Plot RMSE values in 
+# Plot RMSE values 
 ```{r}
 cv_df %>% 
   select(starts_with("rmse")) %>% 
@@ -145,6 +148,7 @@ cv_df %>%
   mutate(model = fct_inorder(model)) %>% 
   ggplot(aes(x = model, y = rmse)) + geom_violin()
 ```
+
 It appears that the best model is the model that accounts for head circumference, length, sex, and all interactions amongst these 3 variables. This is not surprising, as all of these variables have to do with the child itself. "my model" has the largest prediction model... which is not surprising.
 
 ## Question 2
@@ -248,27 +252,3 @@ The 95% CI for the log estimates ranges from 1.96-2.05.
 
 The 95% CI for the rsquared estimates ranges from 0.89-0.93. 
 
-### unused code
-lm(tmax ~ tmin, data = weather_df) %>%
-  broom::glance()
-
-bootstrap_results %>%
-  group_by(term) %>%
-  summarize(boot_se = sd(estimate)) %>%
-  knitr::kable(digits = 3)
-
-
-boot_straps %>% 
-  unnest(strap_sample) %>% 
-  ggplot(aes(tmin = tmin, tmax = tmax)) + 
-  geom_line(aes(group = strap_number), stat = "smooth", method = "lm", se = FALSE, alpha = .1, color = "blue") +
-  geom_point(data = weather_df, alpha = .5)
-
-
-ggplot %>% 
-  ggplot(aes(tmin = tmin, tmax = tmax)) + 
-  geom_line(aes(group = strap_number), stat = "smooth", method = "lm", se = FALSE, alpha = .1, color = "blue") +
-  geom_point(data = weather_df, alpha = .5)
-
-  group_by(term) %>% 
-  summarize(boot_se = sd(estimate))
