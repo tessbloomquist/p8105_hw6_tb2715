@@ -57,16 +57,16 @@ In a simple, unadjusted linear regression model, family monthly income (continuo
 ```{r}
 #examine if the relationship between income and birthweight is true when including covariates
 
-adjusted_model = lm(bwt ~ fincome + delwt + gaweeks + menarche + pnumlbw + smoken + ppbmi, data = birthweight_data) %>% 
+adjusted_model = lm(bwt ~ fincome + delwt + gaweeks + menarche + malform + pnumlbw + mheight + ppbmi, data = birthweight_data) %>% 
   broom::tidy() %>% 
   knitr::kable(digits = 4)
 
 adjusted_model  
 ```
-AFter adjusting for covariates, the relationships remain significant, except for when including the mother age variable. As this is a very specific variable that is likely to have its own relationship on birthweight. This variable will be removed for the final linear relationship. 
+After adjusting for covariates, the relationships remain significant, except for when including the mother age, mother height, and malformation variable. These variables will be removed for the final linear relationship. 
 
 ```{r}
-my_adjusted_model = lm(bwt ~ fincome + delwt + gaweeks + pnumlbw + smoken + ppbmi, data = birthweight_data) 
+my_adjusted_model = lm(bwt ~ fincome + delwt + gaweeks + pnumlbw + ppbmi, data = birthweight_data) 
 
 my_adjusted_model  %>% 
   broom::tidy() %>% 
@@ -124,7 +124,7 @@ cv_df =
 
 cv_df = 
   cv_df %>% 
-    mutate(my_adjusted_model = map(train, ~lm(bwt ~ fincome + delwt + gaweeks + pnumlbw + smoken + ppbmi, data = .x)), 
+    mutate(my_adjusted_model = map(train, ~lm(bwt ~ fincome + delwt + gaweeks + pnumlbw + ppbmi, data = .x)), 
     main_effects = map(train, ~lm(bwt ~ blength + gaweeks, data = .x)),
     all_effects = map(train, ~lm(bwt ~ bhead * blength * babysex, data = .x))) %>% 
   mutate(
@@ -145,7 +145,7 @@ cv_df %>%
   mutate(model = fct_inorder(model)) %>% 
   ggplot(aes(x = model, y = rmse)) + geom_violin()
 ```
-
+It appears that the best model is the model that accounts for head circumference, length, sex, and all interactions amongst these 3 variables. This is not surprising, as all of these variables have to do with the child itself. "my model" has the largest prediction model... which is not surprising.
 
 ## Question 2
 # Import weather data
@@ -182,14 +182,29 @@ boot_straps
 ```
 
 ```{r}
-bootstrap_results = 
+bootstrap_rsquared = 
+  boot_straps %>% 
+  mutate(
+    models = map(strap_sample, ~lm(tmax ~ tmin, data = .x)),
+    rsquared = map(models, broom:: glance)) %>% 
+  select(-strap_sample, -models) %>% 
+  unnest() 
+
+bootstrap_beta = 
   boot_straps %>% 
   mutate(
     models = map(strap_sample, ~lm(tmax ~ tmin, data = .x)),
     results = map(models, broom::tidy)) %>% 
   select(-strap_sample, -models) %>% 
   unnest() 
+```
+lm(tmax ~ tmin, data = weather_df) %>%
+  broom::glance()
 
+bootstrap_results %>%
+  group_by(term) %>%
+  summarize(boot_se = sd(estimate)) %>%
+  knitr::kable(digits = 3)
 
 
 boot_straps %>% 
@@ -206,5 +221,3 @@ ggplot %>%
 
   group_by(term) %>% 
   summarize(boot_se = sd(estimate))
-```
-
