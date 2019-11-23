@@ -212,7 +212,12 @@ bootstrap_beta =
 ```{r}
 beta_plot = bootstrap_beta %>%
   ggplot(aes(x = log)) +
-  geom_density()
+  geom_density() +
+  labs(
+    x = "Log Beta Estimate",
+    y = "Density",
+    title = "Distribution of log Beta Estimates"
+    )
 
 beta_plot
 ```
@@ -222,7 +227,12 @@ The distribution of estimates for the log value has a fairly normal distribution
 ```{r}
 r_plot = bootstrap_rsquared %>%
   ggplot(aes(x = r.squared)) +
-  geom_density()
+  geom_density() +
+  labs(
+    x = "R squared Estimate",
+    y = "Density",
+    title = "Distribution of R Squared Estimates"
+    )
 
 r_plot
 ```
