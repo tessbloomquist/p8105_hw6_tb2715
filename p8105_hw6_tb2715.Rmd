@@ -170,7 +170,7 @@ boot_sample = function(df) {
 }
 ```
 
-#run bootstrep
+# Run bootstrep
 ```{r}
 boot_straps = 
   data_frame(
@@ -181,6 +181,7 @@ boot_straps =
 boot_straps
 ```
 
+# Create variables for analysis 
 ```{r}
 bootstrap_rsquared = 
   boot_straps %>% 
@@ -188,7 +189,8 @@ bootstrap_rsquared =
     models = map(strap_sample, ~lm(tmax ~ tmin, data = .x)),
     rsquared = map(models, broom:: glance)) %>% 
   select(-strap_sample, -models) %>% 
-  unnest() 
+  unnest() %>%
+  select(strap_number, r.squared)
 
 bootstrap_beta = 
   boot_straps %>% 
@@ -196,8 +198,47 @@ bootstrap_beta =
     models = map(strap_sample, ~lm(tmax ~ tmin, data = .x)),
     results = map(models, broom::tidy)) %>% 
   select(-strap_sample, -models) %>% 
-  unnest() 
+  unnest() %>%
+  select(-std.error, -statistic, -p.value) %>%
+  pivot_wider(
+    names_from = term,
+    values_from = estimate
+  ) %>% 
+  rename(beta1 = tmin, beta0 = `(Intercept)`) %>% 
+  mutate(log = log(beta0*beta1))
 ```
+
+# Plots of boot straps and density plots(beta log)
+```{r}
+beta_plot = bootstrap_beta %>%
+  ggplot(aes(x = log)) +
+  geom_density()
+
+beta_plot
+```
+The distribution of estimates for the log value has a fairly normal distribution with a small divot at the very top of the peak. There is also a larger tail towards the lower values than higher values which could indicate that large outliers are excluded from the bootstrap more than smaller outliers. 
+
+# Plots of boot straps and density plots (rsquared)
+```{r}
+r_plot = bootstrap_rsquared %>%
+  ggplot(aes(x = r.squared)) +
+  geom_density()
+
+r_plot
+```
+The distribution of estimates for r squared value has a fairly normal distribution with a larger tail towards the lower values than higher values. THis could indicate that large outliers are excluded from the bootstrap more than smaller outliers. 
+
+# Determining 95% CI
+```{r}
+quantile(pull(bootstrap_beta, log), probs =c(0.025, 0.975))
+
+quantile(pull(bootstrap_rsquared, r.squared), probs =c(0.025, 0.975))
+```
+The 95% CI for the log estimates ranges from 1.96-2.05. 
+
+The 95% CI for the rsquared estimates ranges from 0.89-0.93. 
+
+### unused code
 lm(tmax ~ tmin, data = weather_df) %>%
   broom::glance()
 
